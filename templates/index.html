@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sentiment Analysis Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #f5f5f5; }
+    h1 { color: #0078d4; }
+    textarea { width: 100%; height: 100px; padding: 10px; font-size: 16px; }
+    button { margin-top: 10px; padding: 10px 30px; background: #0078d4; color: white; border: none; font-size: 16px; cursor: pointer; border-radius: 4px; }
+    #result { margin-top: 20px; padding: 20px; background: white; border-radius: 8px; display: none; }
+    .sentiment-label { font-size: 24px; font-weight: bold; text-transform: uppercase; }
+    .positive { color: green; } .negative { color: red; } .neutral { color: gray; } .mixed { color: orange; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    th { background: #0078d4; color: white; padding: 10px; }
+    td { padding: 10px; border-bottom: 1px solid #ddd; }
+    #chart-container { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>🧠 Sentiment Analysis Dashboard</h1>
+  <p>Powered by Azure AI Language + Cosmos DB</p>
+  
+  <textarea id="textInput" placeholder="Enter text to analyze..."></textarea><br>
+  <button onclick="analyze()">Analyze Sentiment</button>
+
+  <div id="result">
+    <h2>Result:</h2>
+    <div class="sentiment-label" id="sentimentLabel"></div>
+    <canvas id="scoreChart" width="400" height="150"></canvas>
+    <p><strong>Key Phrases:</strong> <span id="keyPhrases"></span></p>
+  </div>
+
+  <h2>📊 History</h2>
+  <div id="chart-container">
+    <canvas id="trendChart"></canvas>
+  </div>
+
+  <table>
+    <tr><th>Text</th><th>Sentiment</th><th>Positive</th><th>Negative</th><th>Neutral</th><th>Key Phrases</th></tr>
+    {% for r in results %}
+    <tr>
+      <td>{{ r.text[:60] }}...</td>
+      <td>{{ r.sentiment }}</td>
+      <td>{{ r.positive }}</td>
+      <td>{{ r.negative }}</td>
+      <td>{{ r.neutral }}</td>
+      <td>{{ r.key_phrases|join(', ') }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <script>
+    let scoreChart, trendChart;
+    
+    // Trend chart from history
+    const historyData = {{ results | tojson }};
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    trendChart = new Chart(trendCtx, {
+      type: 'line',
+      data: {
+        labels: historyData.map((r, i) => `Entry ${i+1}`),
+        datasets: [
+          { label: 'Positive', data: historyData.map(r => r.positive), borderColor: 'green', fill: false },
+          { label: 'Negative', data: historyData.map(r => r.negative), borderColor: 'red', fill: false },
+          { label: 'Neutral', data: historyData.map(r => r.neutral), borderColor: 'gray', fill: false }
+        ]
+      },
+      options: { responsive: true, plugins: { title: { display: true, text: 'Sentiment Trends Over Time' }}}
+    });
+
+    async function analyze() {
+      const text = document.getElementById('textInput').value;
+      if (!text.trim()) return alert('Please enter some text');
+      
+      const form = new FormData();
+      form.append('text', text);
+      
+      const res = await fetch('/analyze', { method: 'POST', body: form });
+      const data = await res.json();
+      
+      // Show result
+      document.getElementById('result').style.display = 'block';
+      const label = document.getElementById('sentimentLabel');
+      label.textContent = data.sentiment;
+      label.className = 'sentiment-label ' + data.sentiment.toLowerCase();
+      document.getElementById('keyPhrases').textContent = data.key_phrases.join(', ') || 'None found';
+      
+      // Score bar chart
+      if (scoreChart) scoreChart.destroy();
+      const ctx = document.getElementById('scoreChart').getContext('2d');
+      scoreChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Positive', 'Neutral', 'Negative'],
+          datasets: [{ data: [data.positive, data.neutral, data.negative], backgroundColor: ['green', 'gray', 'red'] }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { max: 1 } } }
+      });
+    }
+  </script>
+</body>
+</html>
+```
+
+---
+
+### Step 5: Test the App Locally
+
+1. In your VS Code terminal run:
+```
+   python app.py
+```
+2. Open browser → go to `http://127.0.0.1:5000`
+3. Type some test sentences and click Analyze:
+   - `"I absolutely love this product, it's amazing!"` → should show Positive
+   - `"This is the worst experience I've ever had."` → should show Negative
+   - `"The weather today is okay."` → should show Neutral
+4. Confirm results appear in the table and the chart updates
+5. Go to your **Cosmos DB Data Explorer** in Azure portal → check that records are being saved under `SentimentDB > Results`
+
+---
+
+### Step 6: Push to GitHub
+
+1. Go to **github.com** → click **"New"** to create a new repository
+2. Name it `csp451-sentiment-dashboard` → set to **Public** → click **"Create repository"**
+3. Back in VS Code terminal:
+```
+   git init
+   git add .
+   git commit -m "Initial commit - Sentiment Analysis Dashboard"
+   git branch -M main
+   git remote add origin https://github.com/YOURUSERNAME/csp451-sentiment-dashboard.git
+   git push -u origin main
+```
+4. Go to your GitHub repo in the browser and confirm files are there
+
+---
+
+## ✅ PHASE 3 — Slides + Architecture Diagram (30 min)
+
+### Step 7: Create Your Presentation Slides
+
+Create a **PowerPoint or Google Slides** deck with exactly these slides:
+
+**Slide 1 – Title**
+- Title: "Sentiment Analysis Dashboard – Azure POC"
+- Your name, Student ID, CSP451NIA, Date
+
+**Slide 2 – Introduction (1 min)**
+- Business problem: "Companies receive thousands of customer reviews but can't manually read them all"
+- Target users: Marketing teams, customer success managers
+- Solution: Real-time sentiment analysis dashboard using Azure AI
+
+**Slide 3 – Architecture Diagram (2 min)**
+Draw this flow (use shapes in PowerPoint or draw.io):
+```
+User → Web App (Flask) → Azure AI Language Service
+                              ↓
+                         Cosmos DB (NoSQL)
+                              ↓
+                    Dashboard (Chart.js trends)
